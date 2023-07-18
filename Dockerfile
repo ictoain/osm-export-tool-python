@@ -1,8 +1,9 @@
-FROM debian:buster-slim
+FROM debian:bullseye-slim
 
 RUN apt-get update && apt-get install -yq \
     python3-pip \
-    python3-gdal
+    python3-gdal \
+    libgdal-dev
 
 COPY . /source/osm-export-tool-python
 
