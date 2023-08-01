@@ -39,14 +39,14 @@ class Kml:
             if theme.osm_id:
                 self.osm_id = True
                 field_name = ogr.FieldDefn('osm_id', ogr.OFTInteger64)
-                field_name.SetWidth(80)
+                field_name.SetWidth(255)
                 self.ogr_layer.CreateField(field_name)
             else:
                 self.osm_id = False
 
             for column in self.columns:
                 field_name = ogr.FieldDefn(column, ogr.OFTString)
-                field_name.SetWidth(80)
+                field_name.SetWidth(255)
                 self.ogr_layer.CreateField(field_name)
 
             self.defn = self.ogr_layer.GetLayerDefn()
@@ -96,7 +96,7 @@ class Shapefile:
             if theme.osm_id:
                 self.osm_id = True
                 field_name = ogr.FieldDefn('osm_id', ogr.OFTInteger64)
-                field_name.SetWidth(80)
+                field_name.SetWidth(255)
                 self.ogr_layer.CreateField(field_name)
             else:
                 self.osm_id = False
@@ -105,7 +105,7 @@ class Shapefile:
             for column in self.columns:
                 laundered_name = launderName(column)
                 field_name = ogr.FieldDefn(laundered_name, ogr.OFTString)
-                field_name.SetWidth(80)
+                field_name.SetWidth(255)
                 self.ogr_layer.CreateField(field_name)
                 self.launderedNames[column] = laundered_name
 
@@ -151,7 +151,7 @@ class Geopackage:
             if theme.osm_id:
                 self.osm_id = True
                 field_name = ogr.FieldDefn('osm_id', ogr.OFTInteger64)
-                field_name.SetWidth(80)
+                field_name.SetWidth(255)
                 self.ogr_layer.CreateField(field_name)
             else:
                 self.osm_id = False
@@ -159,7 +159,7 @@ class Geopackage:
             self.columns = theme.keys
             for column_name in self.columns:
                 field_name = ogr.FieldDefn(column_name, ogr.OFTString)
-                field_name.SetWidth(80)
+                field_name.SetWidth(255)
                 self.ogr_layer.CreateField(field_name)
             self.defn = self.ogr_layer.GetLayerDefn()
 
@@ -207,7 +207,7 @@ class MultiGeopackage:
             if theme.osm_id:
                 self.osm_id = True
                 field_name = ogr.FieldDefn('osm_id', ogr.OFTInteger64)
-                field_name.SetWidth(80)
+                field_name.SetWidth(255)
                 self.ogr_layer.CreateField(field_name)
             else:
                 self.osm_id = False
@@ -215,7 +215,7 @@ class MultiGeopackage:
             self.columns = theme.keys
             for column_name in self.columns:
                 field_name = ogr.FieldDefn(column_name, ogr.OFTString)
-                field_name.SetWidth(80)
+                field_name.SetWidth(255)
                 self.ogr_layer.CreateField(field_name)
             self.defn = self.ogr_layer.GetLayerDefn()
 
