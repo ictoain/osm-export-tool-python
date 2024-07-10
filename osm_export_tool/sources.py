@@ -1,6 +1,7 @@
 import json
 import os
 import pathlib
+import ast
 import shutil
 import subprocess
 import time
@@ -308,7 +309,6 @@ class Overpass:
                 data=data,
                 stream=True,
             ) as r:
-
                 with open(self.tmp_path, "wb") as f:
                     shutil.copyfileobj(r.raw, f)
 
@@ -509,17 +509,30 @@ class Galaxy:
 
         return filter_dict
 
-    def __init__(self, hostname, geom, mapping=None, file_name=""):
+    def __init__(self, hostname, geom, mapping=None, file_name="", access_token=None):
         self.hostname = hostname
         self.geom = geom
         self.mapping = mapping
         self.file_name = file_name
+        self.access_token = access_token
 
-    def fetch(self, output_format, is_hdx_export=False, all_feature_filter_json=None):
+    def fetch(
+        self,
+        output_format,
+        is_hdx_export=False,
+        all_feature_filter_json=None,
+        min_zoom=None,
+        max_zoom=None,
+    ):
         if all_feature_filter_json:
             with open(all_feature_filter_json, encoding="utf-8") as all_features:
                 all_features_filters = json.loads(all_features.read())
         geom = shapely.geometry.mapping(self.geom)
+
+        def format_response(res_item):
+            if isinstance(res_item, str):
+                return ast.literal_eval(res_item)
+            return res_item
 
         if self.mapping:
             if is_hdx_export:
@@ -615,10 +628,13 @@ class Galaxy:
                                     },
                                 }
                         # sending post request and saving response as response object
+
                         headers = {
                             "accept": "application/json",
                             "Content-Type": "application/json",
                         }
+                        if self.access_token:
+                            headers["access-token"] = self.access_token
                         # print(request_body)
                         try:
                             if all_feature_filter_json:
@@ -637,6 +653,7 @@ class Galaxy:
                             with requests.Session() as req_session:
                                 # print("printing before sending")
                                 # print(json.dumps(request_body))
+                                request_body["uuid"] = "false"
                                 for retry in range(MAX_RETRIES):
                                     r = req_session.post(
                                         url=f"{self.hostname}v1/snapshot/",
@@ -651,7 +668,22 @@ class Galaxy:
                                         )
                                         time.sleep(RETRY_DELAY)
                                     elif r.status_code != 200:  # Unexpected status code
-                                        r.raise_for_status()
+                                        if r.status_code == 422:  # Unprocessable Entity
+                                            try:
+                                                error_message = r.json().get("detail")[
+                                                    0
+                                                ]["msg"]
+                                            except (
+                                                json.JSONDecodeError,
+                                                KeyError,
+                                                IndexError,
+                                            ):
+                                                error_message = "Unknown error occurred"
+                                            raise ValueError(
+                                                f"Error {r.status_code}: {error_message}"
+                                            )
+                                        else:
+                                            r.raise_for_status()  # Raise other non-200 errors
                                     else:  # Success
                                         break
                                 if r.ok:
@@ -668,7 +700,8 @@ class Galaxy:
                                         res = r.json()
                                         if res["status"] == "FAILURE":
                                             raise ValueError(
-                                                "Task failed from export tool api"
+
+                                                "Task failed from raw data api"
                                             )
                                         if res["status"] == "SUCCESS":
                                             success = True
@@ -679,7 +712,7 @@ class Galaxy:
                                             time.sleep(
                                                 0.5
                                             )  # wait one half sec before making another request
-                                        else:
+                                        else : 
                                             time.sleep(2)  # Check every 2s for hdx
 
                         except requests.exceptions.RequestException as ex:
@@ -709,7 +742,6 @@ class Galaxy:
                 if (
                     osmTags
                 ):  # if it is a master filter i.e. filter same for all type of feature
-
                     attribute_meta = (
                         {"all_geometry": columns}
                         if columns
@@ -785,8 +817,14 @@ class Galaxy:
                 "geometry": geom,
                 "outputType": output_format,
             }
-
+        if output_format == "mbtiles":
+            request_body["minZoom"] = min_zoom
+            request_body["maxZoom"] = max_zoom
+        else : # use stintersects
+            request_body["useStWithin"]= False
         headers = {"accept": "application/json", "Content-Type": "application/json"}
+        if self.access_token:
+            headers["access-token"] = self.access_token
         # print(request_body)
         try:
             with requests.Session() as req_session:
@@ -820,13 +858,15 @@ class Galaxy:
                     r.raise_for_status()
                     if r.ok:
                         res = r.json()
-                        if res["status"] == "FAILURE":
-                            raise ValueError("Task failed from export tool api")
-                        if res["status"] == "SUCCESS":
-                            success = True
-                            return [res["result"]]
-                        else:
-                            time.sleep(1)  # Check each 1 seconds
+                        if res.get("status") == "FAILURE":
+                            raise ValueError("Task failed from raw data api")
+                        if res.get("status") == "SUCCESS":
+                            if res.get('result'):
+                                result=format_response(res['result'])
+                                if result.get('download_url'):
+                                    success = True
+                                    return [result]
+                        time.sleep(1)  # Check each 1 seconds
 
         except requests.exceptions.RequestException as ex:
             raise ex
